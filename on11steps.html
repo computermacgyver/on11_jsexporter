@@ -1,0 +1,161 @@
+<!DOCTYPE HTML>
+<html>
+  <head>
+	<meta charset="UTF-8">
+	<title>On11 Step Exporter</title>
+    <link rel="stylesheet" href="css/pikaday.css">
+    <link rel="stylesheet" href="css/site.css">	
+	<style>
+	div.step {
+		/*display: block;*/
+		background-color: #DDD;
+		margin-top: 10px;
+		margin-bottom: 10px;
+		padding: 10px;
+	}
+	h1 {
+		text-align: center;
+	}
+	.error {
+		display: none;
+		color: red;
+		font-weight: bold;
+	}
+	</style>
+	<script src="pikaday.js"></script>
+    <script src="https://apis.google.com/js/client.js"></script>
+    <script>
+    var startpicker,endpicker;
+      function auth() {
+        var config = {
+          'client_id': '204872133348-3uirmia3pe7ism1mshgp84hj9adrfsn9.apps.googleusercontent.com',
+          'scope': ' https://www.googleapis.com/auth/fitness.activity.read'
+        };
+        gapi.auth.authorize(config, function() {
+          //console.log('login complete');
+          //console.log(gapi.auth.getToken());
+          document.getElementById("authorized").style.display="inline";
+        });
+      }
+      
+	function makeApiCall() {
+		var sDate = startpicker.getDate();
+		var eDate = endpicker.getDate();
+		if (!sDate || !eDate) {
+			//alert("Select a date range before clicking Get Data");
+			document.getElementById("dateerror").style.display="inline";
+			return;
+		} else {
+			document.getElementById("dateerror").style.display="none";
+		}
+	  gapi.client.load('fitness', 'v1').then(function() {
+		var request = gapi.client.fitness.users.dataSources.datasets.get({
+		    'userId': 'me',
+		    'dataSourceId':'raw:com.google.step_count.delta:name.heqian.on11.pebble:',
+		    'datasetId': sDate.getTime()+'000000-'+eDate.getTime()+'000000'
+		      });
+		request.then(function(resp) {
+		  //console.log(resp);
+		  document.getElementById("output").style.display="none";
+		  var table=document.getElementById('data');
+		  var dailyTotals={};
+		  var totalSteps=0;
+		  var start,end,key;
+		  for (index in resp.result.point) {
+		  	point=resp.result.point[index];
+		  	start=point["startTimeNanos"];
+		  	end=point["endTimeNanos"];
+		  	//console.log(point);
+		  	steps=point["value"][0]["intVal"];
+		  	
+		  	start=new Date(parseInt(start.substr(0,start.length-6)));
+		  	//end=new Date(parseInt(end.substr(0,end.length-6)));
+		  	
+		  	totalSteps+=steps;
+		  	
+	  		key=start.getFullYear()+"-"+(start.getMonth()+1)+"-"+start.getDate();
+	  		if (key in dailyTotals) {
+	  			dailyTotals[key]=dailyTotals[key]+steps;
+	  		} else {
+	  			dailyTotals[key]=steps;
+	  		}
+	  		
+		   }
+		   console.log(dailyTotals);
+		   console.log("Total steps "+totalSteps);
+			for (date in dailyTotals) {
+				var row=table.insertRow();
+				var cell1=row.insertCell(0);
+				cell1.textContent=date;
+				var cell2=row.insertCell(1);
+				cell2.textContent=dailyTotals[date];
+			}
+		}, function(reason) {
+		  console.log('Error:');
+		  console.log(reason);
+		  document.getElementById("output").style.display="inline";
+		  output=document.getElementById('output').textContent="Error: " + reason.result.error.message
+		});
+	  });
+	}
+	
+	function clearTable() {
+		var table=document.getElementById('data');
+		table.innerHTML="<tr><td>Date</td><td>Steps</td></tr>";
+	}
+
+    </script>
+  </head>
+
+  <body>
+  	<h1>On11 Step Exporter</h1>
+  	
+  	<div class="step">
+  	<strong>Step 1</strong>
+  	<p>Authorize this page to access your Google fit data. Nothing is stored; so, you will have to click this button each time the page reloads.</p>
+    <button id="authorize-button" onclick="auth();">Authorize</button>
+    <p id="authorized" style="display:none;">Authorization successful.</p>
+    </div>
+
+  	<div class="step">
+	<strong>Step 2</strong>
+	<p>Select a date range. If a large date range fails, try dividing it into a few shorter date ranges.</p>
+    Start: <input type="text" id="startdate" class="datepicker" onload="new Pikaday({ field: this });">
+    End: <input type="text" id="enddate"  class="datepicker">
+	<p class="error" id="dateerror">Select a date range before clicking Get Data</p>
+    </div>
+    
+   	<div class="step">
+    <strong>Step 3</strong>
+    <p>Click the "Get Data" button to fetch the data from Google Fit.</p>
+    <button onclick="makeApiCall();">Get Data</button>
+    <p id="output" class="error">Error</p>
+  	</div>
+  	
+  	<div class="step">    
+    <strong>Step 4</strong>
+    <p>Data will be added to the table below (after a short pause; be patient). </p>
+    
+    <table id="data" width="150px">
+    	<tr>
+	    	<td>Date</td>
+	    	<td>Steps</td>
+	   	</tr>
+    </table>
+    
+    <button onclick="clearTable();">Clear data in table</button>
+    </div>
+    
+
+<p><a href="https://github.com/computermacgyver/on11_jsexporter">Source code on GitHub</a>; report issues there, please. Many thanks to <a href="http://forums.getpebble.com/discussion/10167/watch-face-android-open-source-on11-with-google-fit-supported/">Qian He</a> for <a href="http://on11.mobi">On11</a> and to <a href="https://github.com/dbushell">David Bushell</a> for the <a href="https://github.com/dbushell/Pikaday">date picker JavaScript</a>.
+  
+    
+<script>
+(function() {
+//initialize the date picker
+startpicker = new Pikaday({ field: document.getElementById('startdate') });
+endpicker = new Pikaday({ field: document.getElementById('enddate') });
+})();
+</script>
+  </body>
+</html>
